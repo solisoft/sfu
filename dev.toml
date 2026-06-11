@@ -1,0 +1,7 @@
+# Local development: unauthenticated, loopback only.
+public_ip = "127.0.0.1"
+udp_port = 3478
+control_addr = "127.0.0.1:9300"
+allow_unauthenticated = true
+audio_slots = 8
+video_slots = 4

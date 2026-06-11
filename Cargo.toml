@@ -1,0 +1,32 @@
+[package]
+name = "soli-sfu"
+version = "0.1.0"
+edition = "2021"
+description = "Lightweight group SFU for the Soli ecosystem - str0m, ICE-lite, single UDP port, proximity-group forwarding"
+license = "MIT"
+
+[dependencies]
+# Sans-IO WebRTC: ICE-lite, DTLS, SRTP, SDP, RTP/RTCP. We own the socket + loop.
+str0m = "0.20"
+
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "signal", "sync"] }
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Token auth - must mirror Soli's Crypto.hmac (HMAC-SHA256, lowercase hex)
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"
+
+[profile.release]
+opt-level = 3
+lto = "thin"

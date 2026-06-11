@@ -1,0 +1,25 @@
+# soli-sfu configuration. Copy to sfu.toml and run: soli-sfu sfu.toml
+# Env overrides: SOLI_SFU_SECRET (or SOLI_WEBHOOK_SECRET), SOLI_SFU_PUBLIC_IP.
+
+# IP advertised in the ICE candidate - the address browsers reach over UDP.
+# MUST be the machine's public IP in production. 127.0.0.1 for local dev.
+public_ip = "127.0.0.1"
+
+# The single UDP media port. Open it in the firewall; do NOT proxy it.
+udp_port = 3478
+
+# HTTP control plane (SDP exchange + group updates). Put soli-proxy in front
+# of this for TLS; it is low-traffic.
+control_addr = "127.0.0.1:9300"
+
+# HMAC secret for session tokens. Use the SAME value as the Soli app that
+# mints them (bonfire: SOLI_WEBHOOK_SECRET). Prefer the env var over this key.
+# secret = ""
+
+# Dev only: accept `dev.<user>.<room>` pseudo-tokens. NEVER in production.
+allow_unauthenticated = false
+
+# Downstream slots per subscriber = max simultaneous publishers one client
+# can receive per kind. Proximity groups are small; 8/4 is generous.
+audio_slots = 8
+video_slots = 4

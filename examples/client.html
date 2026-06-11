@@ -1,0 +1,136 @@
+<!doctype html>
+<!--
+  Manual test client for soli-sfu. Serve it (file:// works too) and open it
+  in TWO tabs/machines:
+
+    cargo run - dev.toml          # allow_unauthenticated dev config
+    open examples/client.html     # tab 1: user u1
+    open examples/client.html     # tab 2: user u2 (change the user field)
+
+  Join the same room in both -> each tab hears the other's mic through the
+  SFU (mute your speakers or use headphones: echo). "Cam" adds video.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>soli-sfu test client</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui; max-width: 760px; margin: 2rem auto; color: #222; }
+    fieldset { border: 1px solid #ccc; border-radius: 8px; margin-bottom: 1rem; }
+    label { display: inline-block; margin-right: 1rem; }
+    input { padding: 4px 6px; }
+    button { padding: 6px 14px; margin-right: 8px; cursor: pointer; }
+    #log { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; background: #f6f4ef; padding: 10px; border-radius: 8px; min-height: 120px; }
+    video { width: 220px; background: #000; border-radius: 8px; margin: 4px; }
+  </style>
+</head>
+<body>
+  <h1>soli-sfu test client</h1>
+
+  <fieldset>
+    <legend>Session</legend>
+    <label>Control URL <input id="control" value="http://127.0.0.1:9300" size="24"></label>
+    <label>User <input id="user" value="u1" size="6"></label>
+    <label>Room <input id="room" value="spatial:test" size="12"></label><br><br>
+    <label>Token (blank = dev token from user+room)<br>
+      <input id="token" size="80" placeholder="sfu1.... (leave blank in dev mode)"></label><br><br>
+    <button id="join">Join (mic)</button>
+    <button id="cam" disabled>Cam on</button>
+    <button id="leave" disabled>Leave</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Remote media</legend>
+    <div id="remotes"></div>
+  </fieldset>
+
+  <div id="log"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const log = (m) => { $('log').textContent += m + '\n'; console.log(m); };
+
+    // Must stay <= the server's audio_slots / video_slots config.
+    const AUDIO_SLOTS = 8, VIDEO_SLOTS = 4;
+
+    let pc = null, sessionId = null, camTransceiver = null;
+
+    function token() {
+      const t = $('token').value.trim();
+      if (t) return t;
+      return 'dev.' + $('user').value.trim() + '.' + $('room').value.trim();
+    }
+
+    async function join() {
+      pc = new RTCPeerConnection();   // no STUN config needed: the SFU's host candidate is directly reachable
+      pc.oniceconnectionstatechange = () => log('ice: ' + pc.iceConnectionState);
+      pc.onconnectionstatechange = () => log('pc: ' + pc.connectionState);
+      pc.ontrack = (ev) => {
+        log('track: ' + ev.track.kind + ' ' + ev.track.id);
+        if (ev.track.kind === 'audio') {
+          const a = new Audio();
+          a.autoplay = true;
+          a.srcObject = new MediaStream([ev.track]);
+          ev.track.onunmute = () => log('audio unmuted (receiving)');
+        } else {
+          const v = document.createElement('video');
+          v.autoplay = true; v.playsInline = true; v.muted = true;
+          v.srcObject = new MediaStream([ev.track]);
+          $('remotes').appendChild(v);
+        }
+      };
+
+      // Upstream: mic now, cam slot reserved (sendonly, replaced on "Cam on").
+      const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+      pc.addTransceiver(mic.getAudioTracks()[0], { direction: 'sendonly' });
+      camTransceiver = pc.addTransceiver('video', { direction: 'sendonly' });
+
+      // Downstream slots: pre-allocated recvonly m-lines the SFU maps
+      // publishers onto (no renegotiation, see engine.rs).
+      for (let i = 0; i < AUDIO_SLOTS; i++) pc.addTransceiver('audio', { direction: 'recvonly' });
+      for (let i = 0; i < VIDEO_SLOTS; i++) pc.addTransceiver('video', { direction: 'recvonly' });
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const res = await fetch($('control').value + '/v1/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token(), sdp_offer: offer.sdp })
+      });
+      if (!res.ok) { log('join failed: ' + res.status + ' ' + await res.text()); return; }
+      const body = await res.json();
+      sessionId = body.session_id;
+      await pc.setRemoteDescription({ type: 'answer', sdp: body.sdp_answer });
+      log('joined: session ' + sessionId);
+      $('join').disabled = true; $('leave').disabled = false; $('cam').disabled = false;
+    }
+
+    async function camOn() {
+      const cam = await navigator.mediaDevices.getUserMedia({ video: { width: 640 } });
+      await camTransceiver.sender.replaceTrack(cam.getVideoTracks()[0]);
+      log('cam on');
+      $('cam').disabled = true;
+    }
+
+    async function leave() {
+      if (sessionId !== null) {
+        await fetch($('control').value + '/v1/sessions/' + sessionId, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token() })
+        }).catch(() => {});
+      }
+      if (pc) pc.close();
+      pc = null; sessionId = null;
+      $('join').disabled = false; $('leave').disabled = true; $('cam').disabled = true;
+      log('left');
+    }
+
+    $('join').onclick = () => join().catch(e => log('error: ' + e));
+    $('cam').onclick = () => camOn().catch(e => log('error: ' + e));
+    $('leave').onclick = () => leave();
+    addEventListener('pagehide', () => { if (sessionId !== null) navigator.sendBeacon && leave(); });
+  </script>
+</body>
+</html>
