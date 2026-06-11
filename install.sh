@@ -1,11 +1,11 @@
 #!/bin/sh
 # soli-sfu installer - works with any POSIX shell
-# Usage: curl -sSL https://raw.githubusercontent.com/solisoft/soli_sfu/main/install.sh | sh
+# Usage: curl -sSL https://raw.githubusercontent.com/solisoft/sfu/main/install.sh | sh
 #   or:  sh install.sh [--system | --user]
 
 set -e
 
-REPO="solisoft/soli_sfu"
+REPO="solisoft/sfu"
 BIN="soli-sfu"
 SYSTEM_DIR="/usr/local/bin"
 SYSTEM_INSTALL=0

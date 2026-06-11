@@ -13,10 +13,10 @@
     published SHA-256, and installs to <code>~/.local/bin</code> (or
     <code>/usr/local/bin</code> when run as root / with <code>--system</code>):
   </p>
-  <pre data-lang="shell"><code>curl -sSL https://raw.githubusercontent.com/solisoft/soli_sfu/main/install.sh | sh
+  <pre data-lang="shell"><code>curl -sSL https://raw.githubusercontent.com/solisoft/sfu/main/install.sh | sh
 
 <span class="c"># or system-wide</span>
-curl -sSL https://raw.githubusercontent.com/solisoft/soli_sfu/main/install.sh | sudo sh</code></pre>
+curl -sSL https://raw.githubusercontent.com/solisoft/sfu/main/install.sh | sudo sh</code></pre>
 
   <h2>Release tarballs</h2>
   <p>
@@ -29,8 +29,8 @@ curl -sSL https://raw.githubusercontent.com/solisoft/soli_sfu/main/install.sh | 
     <tr><td>Linux ARM64</td><td><code>soli-sfu-linux-arm64.tar.gz</code></td></tr>
     <tr><td>macOS Apple Silicon</td><td><code>soli-sfu-darwin-arm64.tar.gz</code></td></tr>
   </table>
-  <pre data-lang="shell"><code>curl -sSLO https://github.com/solisoft/soli_sfu/releases/latest/download/soli-sfu-linux-amd64.tar.gz
-curl -sSLO https://github.com/solisoft/soli_sfu/releases/latest/download/soli-sfu-linux-amd64.tar.gz.sha256
+  <pre data-lang="shell"><code>curl -sSLO https://github.com/solisoft/sfu/releases/latest/download/soli-sfu-linux-amd64.tar.gz
+curl -sSLO https://github.com/solisoft/sfu/releases/latest/download/soli-sfu-linux-amd64.tar.gz.sha256
 echo "$(cat soli-sfu-linux-amd64.tar.gz.sha256)  soli-sfu-linux-amd64.tar.gz" | sha256sum -c
 tar xzf soli-sfu-linux-amd64.tar.gz
 sudo install -m 755 soli-sfu /usr/local/bin/</code></pre>
@@ -46,15 +46,15 @@ sudo install -m 755 soli-sfu /usr/local/bin/</code></pre>
   -e SOLI_SFU_SECRET=... \
   -e SOLI_SFU_PUBLIC_IP=203.0.113.10 \
   -v /etc/soli/sfu.toml:/etc/soli/sfu.toml:ro \
-  ghcr.io/solisoft/soli_sfu:latest</code></pre>
+  ghcr.io/solisoft/sfu:latest</code></pre>
 
   <h2>Build from source</h2>
   <p>
     Stable Rust toolchain; str0m's crypto is aws-lc-rs, so a C compiler and
     <code>cmake</code> are the only system dependencies (no OpenSSL):
   </p>
-  <pre data-lang="shell"><code>git clone https://github.com/solisoft/soli_sfu
-cd soli_sfu
+  <pre data-lang="shell"><code>git clone https://github.com/solisoft/sfu
+cd sfu
 cargo build --release
 <span class="c"># binary at target/release/soli-sfu</span></code></pre>
 
