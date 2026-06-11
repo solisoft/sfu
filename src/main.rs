@@ -29,8 +29,12 @@ fn main() -> Result<()> {
     // the configured secret (handy for curl / the test page).
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).map(String::as_str) == Some("mint-token") {
-        let user = args.get(2).context("usage: mint-token <user_id> <room> [ttl]")?;
-        let room = args.get(3).context("usage: mint-token <user_id> <room> [ttl]")?;
+        let user = args
+            .get(2)
+            .context("usage: mint-token <user_id> <room> [ttl]")?;
+        let room = args
+            .get(3)
+            .context("usage: mint-token <user_id> <room> [ttl]")?;
         let ttl: u64 = args.get(4).map(|s| s.parse()).transpose()?.unwrap_or(3600);
         let secret = std::env::var("SOLI_SFU_SECRET")
             .or_else(|_| std::env::var("SOLI_WEBHOOK_SECRET"))

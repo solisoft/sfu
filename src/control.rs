@@ -81,10 +81,7 @@ fn authenticate(state: &AppState, token: &str) -> Option<auth::Claims> {
     auth::verify(token, &state.cfg.secret, state.cfg.allow_unauthenticated)
 }
 
-async fn create_session(
-    State(state): State<AppState>,
-    Json(req): Json<CreateReq>,
-) -> Response {
+async fn create_session(State(state): State<AppState>, Json(req): Json<CreateReq>) -> Response {
     let Some(claims) = authenticate(&state, &req.token) else {
         return err(StatusCode::UNAUTHORIZED, "invalid token");
     };

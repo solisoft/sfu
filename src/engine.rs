@@ -64,7 +64,9 @@ pub enum Cmd {
         reply: oneshot::Sender<Result<()>>,
     },
     /// Lightweight introspection for /v1/stats.
-    Stats { reply: oneshot::Sender<StatsSnapshot> },
+    Stats {
+        reply: oneshot::Sender<StatsSnapshot>,
+    },
 }
 
 pub struct NewSession {
@@ -441,10 +443,11 @@ impl Engine {
                 // freshly bound video slots need a keyframe to start decoding
                 let sub = &self.clients[i];
                 kind == MediaKind::Video
-                    && sub
-                        .slots
-                        .iter()
-                        .any(|s| s.mid == slot_mid && s.last_data == now && s.src == Some((from_id, data.mid)))
+                    && sub.slots.iter().any(|s| {
+                        s.mid == slot_mid
+                            && s.last_data == now
+                            && s.src == Some((from_id, data.mid))
+                    })
             };
             let sub = &mut self.clients[i];
             let Some(writer) = sub.rtc.writer(slot_mid) else {
@@ -495,9 +498,7 @@ impl Engine {
                         },
                     );
                     // str0m demuxes: ICE by STUN ufrag, SRTP by known source.
-                    if let Some(client) =
-                        self.clients.iter_mut().find(|c| c.rtc.accepts(&input))
-                    {
+                    if let Some(client) = self.clients.iter_mut().find(|c| c.rtc.accepts(&input)) {
                         if let Err(e) = client.rtc.handle_input(input) {
                             tracing::debug!(session = client.id, "handle_input: {e}");
                         }
