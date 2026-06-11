@@ -1,5 +1,5 @@
 <article class="doc">
-  <p class="kicker">05 / client contract</p>
+  <p class="kicker">06 / client contract</p>
   <h1>Client contract</h1>
   <p class="lede">
     One RTCPeerConnection per room. The client decides its media shape

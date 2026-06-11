@@ -1,12 +1,13 @@
 <%
   pages = [
     { "slug": "overview",     "path": "/",             "idx": "01", "label": "Overview" },
-    { "slug": "architecture", "path": "/architecture", "idx": "02", "label": "Architecture" },
-    { "slug": "api",          "path": "/api",          "idx": "03", "label": "Control API" },
-    { "slug": "tokens",       "path": "/tokens",       "idx": "04", "label": "Tokens" },
-    { "slug": "client",       "path": "/client",       "idx": "05", "label": "Client contract" },
-    { "slug": "bonfire",      "path": "/bonfire",      "idx": "06", "label": "Bonfire integration" },
-    { "slug": "ops",          "path": "/ops",          "idx": "07", "label": "Operations" }
+    { "slug": "install",      "path": "/install",      "idx": "02", "label": "Installation" },
+    { "slug": "architecture", "path": "/architecture", "idx": "03", "label": "Architecture" },
+    { "slug": "api",          "path": "/api",          "idx": "04", "label": "Control API" },
+    { "slug": "tokens",       "path": "/tokens",       "idx": "05", "label": "Tokens" },
+    { "slug": "client",       "path": "/client",       "idx": "06", "label": "Client contract" },
+    { "slug": "bonfire",      "path": "/bonfire",      "idx": "07", "label": "Bonfire integration" },
+    { "slug": "ops",          "path": "/ops",          "idx": "08", "label": "Operations" }
   ]
   active = locals["active"] ?? "overview"
 %>

@@ -1,5 +1,5 @@
 <article class="doc">
-  <p class="kicker">02 / architecture</p>
+  <p class="kicker">03 / architecture</p>
   <h1>One thread, one socket, N state machines</h1>
   <p class="lede">
     The engine is built on str0m, a sans-IO WebRTC library: each peer is an
@@ -84,7 +84,7 @@
   </div>
 
   <div class="pager">
-    <a href="/"><span>previous</span>Overview</a>
+    <a href="/install"><span>previous</span>Installation</a>
     <a class="next" href="/api"><span>next</span>Control API</a>
   </div>
 </article>

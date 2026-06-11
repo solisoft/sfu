@@ -1,5 +1,5 @@
 <article class="doc">
-  <p class="kicker">04 / tokens</p>
+  <p class="kicker">05 / tokens</p>
   <h1>Tokens</h1>
   <p class="lede">
     Auth is a signed, expiring token binding a user to a room. The scheme is

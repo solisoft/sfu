@@ -65,6 +65,6 @@ SOLI_SFU_SECRET=... cargo run --release -- sfu.toml</code></pre>
 
   <div class="pager">
     <span></span>
-    <a class="next" href="/architecture"><span>next</span>Architecture</a>
+    <a class="next" href="/install"><span>next</span>Installation</a>
   </div>
 </article>

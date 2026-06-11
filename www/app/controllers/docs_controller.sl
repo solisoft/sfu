@@ -11,6 +11,11 @@ class DocsController < Controller
         @page  = "overview"
     end
 
+    def install
+        @title = "Installation"
+        @page  = "install"
+    end
+
     def architecture
         @title = "Architecture"
         @page  = "architecture"

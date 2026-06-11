@@ -1,0 +1,95 @@
+<article class="doc">
+  <p class="kicker">02 / installation</p>
+  <h1>Installation</h1>
+  <p class="lede">
+    Pick one: the installer script, a release tarball, Docker, or a source
+    build. Every tagged release ships signed-checksum binaries for Linux
+    (amd64, arm64) and macOS (arm64), built by CI.
+  </p>
+
+  <h2>Installer script</h2>
+  <p>
+    Detects your platform, downloads the latest release, verifies the
+    published SHA-256, and installs to <code>~/.local/bin</code> (or
+    <code>/usr/local/bin</code> when run as root / with <code>--system</code>):
+  </p>
+  <pre data-lang="shell"><code>curl -sSL https://raw.githubusercontent.com/solisoft/soli_sfu/main/install.sh | sh
+
+<span class="c"># or system-wide</span>
+curl -sSL https://raw.githubusercontent.com/solisoft/soli_sfu/main/install.sh | sudo sh</code></pre>
+
+  <h2>Release tarballs</h2>
+  <p>
+    Each <code>v*</code> tag publishes a GitHub release with one tarball per
+    platform and a <code>.sha256</code> sibling for verification:
+  </p>
+  <table>
+    <tr><th>Platform</th><th>Artifact</th></tr>
+    <tr><td>Linux x86_64</td><td><code>soli-sfu-linux-amd64.tar.gz</code></td></tr>
+    <tr><td>Linux ARM64</td><td><code>soli-sfu-linux-arm64.tar.gz</code></td></tr>
+    <tr><td>macOS Apple Silicon</td><td><code>soli-sfu-darwin-arm64.tar.gz</code></td></tr>
+  </table>
+  <pre data-lang="shell"><code>curl -sSLO https://github.com/solisoft/soli_sfu/releases/latest/download/soli-sfu-linux-amd64.tar.gz
+curl -sSLO https://github.com/solisoft/soli_sfu/releases/latest/download/soli-sfu-linux-amd64.tar.gz.sha256
+echo "$(cat soli-sfu-linux-amd64.tar.gz.sha256)  soli-sfu-linux-amd64.tar.gz" | sha256sum -c
+tar xzf soli-sfu-linux-amd64.tar.gz
+sudo install -m 755 soli-sfu /usr/local/bin/</code></pre>
+
+  <h2>Docker</h2>
+  <p>
+    Tagged releases also push an image to GHCR. Use host networking so the
+    advertised <code>public_ip</code> is genuinely reachable on the media
+    port - a NATed bridge breaks ICE:
+  </p>
+  <pre data-lang="shell"><code>docker run -d --name soli-sfu \
+  --network host \
+  -e SOLI_SFU_SECRET=... \
+  -e SOLI_SFU_PUBLIC_IP=203.0.113.10 \
+  -v /etc/soli/sfu.toml:/etc/soli/sfu.toml:ro \
+  ghcr.io/solisoft/soli_sfu:latest</code></pre>
+
+  <h2>Build from source</h2>
+  <p>
+    Stable Rust toolchain; str0m's crypto is aws-lc-rs, so a C compiler and
+    <code>cmake</code> are the only system dependencies (no OpenSSL):
+  </p>
+  <pre data-lang="shell"><code>git clone https://github.com/solisoft/soli_sfu
+cd soli_sfu
+cargo build --release
+<span class="c"># binary at target/release/soli-sfu</span></code></pre>
+
+  <h2>First run</h2>
+  <pre data-lang="shell"><code><span class="c"># 1. config: copy the example, set public_ip to the machine's public address</span>
+cp config.example.toml sfu.toml
+
+<span class="c"># 2. secret: same value as the Soli app that mints tokens</span>
+export SOLI_SFU_SECRET=...
+
+<span class="c"># 3. run</span>
+soli-sfu sfu.toml
+<span class="c">#   media:   udp 0.0.0.0:3478 (advertised as &lt;public_ip&gt;:3478, ice-lite)</span>
+<span class="c">#   control: http://127.0.0.1:9300</span></code></pre>
+  <ul>
+    <li>Open UDP <code>3478</code> in the firewall. Do not proxy it.</li>
+    <li>Front <code>:9300</code> with soli-proxy for TLS (see <a href="/ops">Operations</a>).</li>
+    <li>Sanity check: <code>curl http://127.0.0.1:9300/healthz</code> then two tabs of <code>examples/client.html</code>.</li>
+  </ul>
+
+  <h2>CI and releasing</h2>
+  <p>
+    The pipeline mirrors soli_lang's: every push runs
+    <code>test</code>, <code>clippy -D warnings</code>,
+    <code>fmt --check</code> and <code>cargo audit</code>. Pushing a
+    <code>v*</code> tag (matching the <code>Cargo.toml</code> version - CI
+    refuses a mismatch) drafts a GitHub release, builds the three platform
+    binaries with checksums, publishes the release, and pushes the Docker
+    image.
+  </p>
+  <pre data-lang="shell"><code><span class="c"># cut a release</span>
+git tag v0.1.0 &amp;&amp; git push origin v0.1.0</code></pre>
+
+  <div class="pager">
+    <a href="/"><span>previous</span>Overview</a>
+    <a class="next" href="/architecture"><span>next</span>Architecture</a>
+  </div>
+</article>

@@ -26,5 +26,6 @@
       <%= yield %>
     </main>
   </div>
+  <script defer src="<%= public_path("js/docs.js") %>"></script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 # soli-sfu documentation site
 
 get("/", "docs#overview", name: "root")
+get("/install", "docs#install", name: "install")
 get("/architecture", "docs#architecture", name: "architecture")
 get("/api", "docs#api", name: "api")
 get("/tokens", "docs#tokens", name: "tokens")

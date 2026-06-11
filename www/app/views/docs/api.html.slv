@@ -1,5 +1,5 @@
 <article class="doc">
-  <p class="kicker">03 / control api</p>
+  <p class="kicker">04 / control api</p>
   <h1>Control API</h1>
   <p class="lede">
     A tiny JSON-over-HTTP plane for SDP exchange and group updates. Media
