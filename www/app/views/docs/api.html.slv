@@ -26,6 +26,11 @@
       <td><code>204</code></td>
     </tr>
     <tr>
+      <td><span class="m post">POST</span><code>/v1/sessions/:id/slots</code></td>
+      <td><code>{token}</code></td>
+      <td><code>{slot_mid: user_id}</code></td>
+    </tr>
+    <tr>
       <td><span class="m get">GET</span><code>/v1/stats</code></td>
       <td>-</td>
       <td><code>{sessions, rooms}</code></td>
@@ -66,6 +71,22 @@
 { "token": "sfu1....", "peers": ["user-7", "user-12", "user-31"] }
 
 204 No Content</code></pre>
+
+  <h2>Who is on which slot</h2>
+  <p>
+    Slots carry no identity in-band, so a client that wants to label tiles
+    polls its own slot bindings (cheap; poll while a video track is live or
+    after one unmutes):
+  </p>
+  <pre data-lang="http"><code>POST /v1/sessions/3/slots
+{ "token": "sfu1...." }
+
+200 OK
+{ "2": "user-7", "9": "user-12" }   <span class="c">// slot mid -&gt; publisher user_id</span></code></pre>
+  <p>
+    The mids match <code>RTCRtpTransceiver.mid</code> on the client's
+    receive-only transceivers.
+  </p>
 
   <h2>Errors</h2>
   <table>

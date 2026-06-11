@@ -67,6 +67,13 @@ pub enum Cmd {
     Stats {
         reply: oneshot::Sender<StatsSnapshot>,
     },
+    /// The session's current slot bindings: slot mid -> publisher user_id.
+    /// Clients poll this to label tiles (the slot model carries no identity).
+    Slots {
+        session_id: u64,
+        user_id: String,
+        reply: oneshot::Sender<Result<HashMap<String, String>>>,
+    },
 }
 
 pub struct NewSession {
@@ -245,6 +252,31 @@ impl Engine {
                     } else {
                         let _ = reply.send(Err(anyhow::anyhow!("unknown session")));
                     }
+                }
+                Cmd::Slots {
+                    session_id,
+                    user_id,
+                    reply,
+                } => {
+                    let res = match self
+                        .clients
+                        .iter()
+                        .position(|c| c.id == session_id && c.user_id == user_id)
+                    {
+                        Some(idx) => {
+                            // slot mid -> the user_id of the session feeding it
+                            let mut map = HashMap::new();
+                            for s in &self.clients[idx].slots {
+                                let Some((pub_id, _)) = s.src else { continue };
+                                if let Some(p) = self.clients.iter().find(|c| c.id == pub_id) {
+                                    map.insert(s.mid.to_string(), p.user_id.clone());
+                                }
+                            }
+                            Ok(map)
+                        }
+                        None => Err(anyhow::anyhow!("unknown session")),
+                    };
+                    let _ = reply.send(res);
                 }
                 Cmd::Stats { reply } => {
                     let mut rooms: HashMap<String, usize> = HashMap::new();

@@ -42,6 +42,7 @@ pub fn router(state: AppState) -> Router {
             "/v1/sessions/{id}",
             axum::routing::patch(set_peers).delete(drop_session),
         )
+        .route("/v1/sessions/{id}/slots", post(slots))
         .layer(cors)
         .with_state(state)
 }
@@ -150,6 +151,32 @@ async fn drop_session(
     }
     match rx.await {
         Ok(Ok(())) => StatusCode::NO_CONTENT.into_response(),
+        Ok(Err(e)) => err(StatusCode::NOT_FOUND, &e.to_string()),
+        Err(_) => err(StatusCode::SERVICE_UNAVAILABLE, "engine down"),
+    }
+}
+
+/// Current slot bindings of MY session: {slot_mid: publisher_user_id}.
+/// POST (not GET) so the token rides the body like every other route.
+async fn slots(
+    State(state): State<AppState>,
+    Path(id): Path<u64>,
+    Json(req): Json<DropReq>,
+) -> Response {
+    let Some(claims) = authenticate(&state, &req.token) else {
+        return err(StatusCode::UNAUTHORIZED, "invalid token");
+    };
+    let (reply, rx) = oneshot::channel();
+    let cmd = Cmd::Slots {
+        session_id: id,
+        user_id: claims.user_id,
+        reply,
+    };
+    if state.cmd_tx.send(cmd).await.is_err() {
+        return err(StatusCode::SERVICE_UNAVAILABLE, "engine down");
+    }
+    match rx.await {
+        Ok(Ok(map)) => Json(map).into_response(),
         Ok(Err(e)) => err(StatusCode::NOT_FOUND, &e.to_string()),
         Err(_) => err(StatusCode::SERVICE_UNAVAILABLE, "engine down"),
     }
