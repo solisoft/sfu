@@ -1,0 +1,88 @@
+<article class="doc">
+  <p class="kicker">03 / control api</p>
+  <h1>Control API</h1>
+  <p class="lede">
+    A tiny JSON-over-HTTP plane for SDP exchange and group updates. Media
+    never touches it. Put soli-proxy in front for TLS; it is low-traffic
+    (a handful of requests per call, not per packet).
+  </p>
+
+  <h2>Routes</h2>
+  <table>
+    <tr><th>Route</th><th>Body</th><th>Response</th></tr>
+    <tr>
+      <td><span class="m post">POST</span><code>/v1/sessions</code></td>
+      <td><code>{token, sdp_offer, peers?}</code></td>
+      <td><code>{session_id, sdp_answer}</code></td>
+    </tr>
+    <tr>
+      <td><span class="m patch">PATCH</span><code>/v1/sessions/:id</code></td>
+      <td><code>{token, peers}</code></td>
+      <td><code>204</code></td>
+    </tr>
+    <tr>
+      <td><span class="m delete">DELETE</span><code>/v1/sessions/:id</code></td>
+      <td><code>{token}</code></td>
+      <td><code>204</code></td>
+    </tr>
+    <tr>
+      <td><span class="m get">GET</span><code>/v1/stats</code></td>
+      <td>-</td>
+      <td><code>{sessions, rooms}</code></td>
+    </tr>
+    <tr>
+      <td><span class="m get">GET</span><code>/healthz</code></td>
+      <td>-</td>
+      <td><code>ok</code></td>
+    </tr>
+  </table>
+
+  <h2>Create a session</h2>
+  <pre data-lang="http"><code>POST /v1/sessions
+{
+  "token":     "sfu1.dXNlci00Mg==:c3BhdGlhbDphY21l:1781234567.ab12...",
+  "sdp_offer": "v=0\r\no=- 46117...",
+  "peers":     ["user-7", "user-12"]
+}
+
+200 OK
+{
+  "session_id": 3,
+  "sdp_answer": "v=0\r\no=- 89221..."
+}</code></pre>
+  <ul>
+    <li>The room comes from the <strong>token</strong>, not the body - a client cannot join a room it was not minted for.</li>
+    <li><code>peers</code> = user_ids this subscriber should hear. Omit (or <code>null</code>) for everyone in the room.</li>
+    <li>Re-POSTing for the same (user, room) <strong>replaces</strong> the previous session - reconnects are safe.</li>
+  </ul>
+
+  <h2>Update the group</h2>
+  <p>
+    When the conversation changes shape (someone walks up, a circle locks),
+    PATCH the new peer set. Takes effect on the next packet - no media
+    interruption.
+  </p>
+  <pre data-lang="http"><code>PATCH /v1/sessions/3
+{ "token": "sfu1....", "peers": ["user-7", "user-12", "user-31"] }
+
+204 No Content</code></pre>
+
+  <h2>Errors</h2>
+  <table>
+    <tr><th>Status</th><th>Meaning</th></tr>
+    <tr><td><code>401</code></td><td>Token invalid, expired, or signed with another secret.</td></tr>
+    <tr><td><code>400</code></td><td>SDP offer failed to parse / be accepted (body carries the str0m error).</td></tr>
+    <tr><td><code>404</code></td><td>Unknown session id, or the token's user does not own it.</td></tr>
+    <tr><td><code>503</code></td><td>Engine thread unavailable (the process is going down).</td></tr>
+  </table>
+
+  <div class="note">
+    <strong>CORS is permissive</strong> on this API: the browser may call it
+    cross-origin from the app, and the HMAC token is the real authentication.
+  </div>
+
+  <div class="pager">
+    <a href="/architecture"><span>previous</span>Architecture</a>
+    <a class="next" href="/tokens"><span>next</span>Tokens</a>
+  </div>
+</article>

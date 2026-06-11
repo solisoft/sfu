@@ -1,0 +1,88 @@
+<article class="doc">
+  <p class="kicker">07 / operations</p>
+  <h1>Operations</h1>
+  <p class="lede">
+    One binary, one TOML file, two ports. The deliberate absence of state
+    makes most ops questions short.
+  </p>
+
+  <h2>Configuration</h2>
+  <table>
+    <tr><th>Key</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>public_ip</code></td><td><code>127.0.0.1</code></td><td>IP advertised in the ICE candidate. The address browsers reach over UDP - the machine's public IP in production.</td></tr>
+    <tr><td><code>udp_port</code></td><td><code>3478</code></td><td>The single media port. Open in the firewall, never proxied.</td></tr>
+    <tr><td><code>control_addr</code></td><td><code>127.0.0.1:9300</code></td><td>HTTP control plane bind. Front with soli-proxy for TLS.</td></tr>
+    <tr><td><code>secret</code></td><td>-</td><td>Token HMAC secret. Prefer the env var.</td></tr>
+    <tr><td><code>allow_unauthenticated</code></td><td><code>false</code></td><td>Dev only: accept <code>dev.*</code> pseudo-tokens.</td></tr>
+    <tr><td><code>audio_slots</code> / <code>video_slots</code></td><td><code>8</code> / <code>4</code></td><td>Downstream slots per subscriber (= max simultaneous publishers received).</td></tr>
+  </table>
+  <p>
+    Env overrides: <code>SOLI_SFU_SECRET</code> (or
+    <code>SOLI_WEBHOOK_SECRET</code>), <code>SOLI_SFU_PUBLIC_IP</code>.
+    Logs via <code>RUST_LOG</code> (default <code>soli_sfu=info</code>).
+  </p>
+
+  <h2>systemd unit</h2>
+  <pre data-lang="ini"><code>[Unit]
+Description=soli-sfu media server
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/soli-sfu /etc/soli/sfu.toml
+Environment=SOLI_SFU_SECRET=...
+Environment=RUST_LOG=soli_sfu=info
+Restart=on-failure
+<span class="c"># media is latency-sensitive; keep the niceness</span>
+Nice=-5
+
+[Install]
+WantedBy=multi-user.target</code></pre>
+
+  <h2>soli-proxy front</h2>
+  <p>Only the control plane goes through the proxy:</p>
+  <pre data-lang="toml"><code><span class="c"># proxy config: TLS for the control API</span>
+[[routes]]
+host   = "sfu.example.com"
+target = "http://127.0.0.1:9300"</code></pre>
+  <div class="warn">
+    <strong>Do not route the UDP port through anything.</strong> Media goes
+    browser -&gt; <code>public_ip:3478</code> directly. A proxy in that path
+    breaks ICE and adds latency for zero benefit.
+  </div>
+
+  <h2>Capacity math</h2>
+  <p>
+    Forwarding cost is bandwidth, not CPU. Per conversation group of
+    <code>n</code> people, the SFU receives <code>n</code> streams and sends
+    <code>n*(n-1)</code>:
+  </p>
+  <table>
+    <tr><th>Group</th><th>Audio only (~40 kbps)</th><th>+ 1 camera (~600 kbps)</th></tr>
+    <tr><td>4 people</td><td>~0.5 Mbps out</td><td>~2.3 Mbps out</td></tr>
+    <tr><td>8 people</td><td>~2.2 Mbps out</td><td>~6.5 Mbps out</td></tr>
+    <tr><td>10 groups of 6</td><td>~12 Mbps out</td><td>~48 Mbps out</td></tr>
+  </table>
+  <p>A modest VPS with a 1 Gbps port carries an entire company's office day.</p>
+
+  <h2>Debugging</h2>
+  <ul>
+    <li><code>GET /v1/stats</code> - sessions and rooms right now.</li>
+    <li><code>chrome://webrtc-internals</code> in the browser - the single most useful tool: per-track bitrate, packet loss, ICE state.</li>
+    <li><code>RUST_LOG=soli_sfu=debug</code> - logs slot binding, keyframe relays, per-session lifecycle.</li>
+    <li>No audio one way: check the <code>peers</code> sets first (PATCH log), then the publisher's track state in webrtc-internals.</li>
+    <li>No connection at all: the browser cannot reach <code>public_ip:udp_port</code> - firewall, or <code>public_ip</code> is wrong (it is what goes into the SDP answer).</li>
+  </ul>
+
+  <h2>Known limits (v1)</h2>
+  <ul>
+    <li>No simulcast / congestion control - bitrates are capped client-side.</li>
+    <li>No TCP/TLS media fallback - UDP-blocked networks will not connect (add ice-tcp or TURN if it ever matters).</li>
+    <li>In-memory state - a restart drops live calls; clients re-join.</li>
+    <li>Single-threaded media loop - plenty for office workloads; shard by room across threads if it ever is not.</li>
+  </ul>
+
+  <div class="pager">
+    <a href="/bonfire"><span>previous</span>Bonfire integration</a>
+    <span></span>
+  </div>
+</article>

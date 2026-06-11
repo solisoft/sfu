@@ -1,0 +1,70 @@
+<article class="doc">
+  <p class="kicker">01 / overview</p>
+  <h1>A group SFU you can actually read</h1>
+  <p class="lede">
+    soli-sfu is a lightweight Selective Forwarding Unit for the Soli
+    ecosystem: one Rust binary, one UDP port, no transcoding. It exists so
+    bonfire's office conversations can grow past the ~5-person ceiling of a
+    client-side WebRTC mesh without operating a heavyweight media server.
+  </p>
+
+  <div class="statgrid">
+    <div class="stat"><div class="v">1</div><div class="l">udp port, all peers</div></div>
+    <div class="stat"><div class="v">0</div><div class="l">transcodes / renegotiations</div></div>
+    <div class="stat"><div class="v">~2k</div><div class="l">lines of rust</div></div>
+  </div>
+
+  <h2>Why an SFU</h2>
+  <p>
+    In a mesh, every participant sends their media to every other participant:
+    upload cost grows linearly with group size and tops out around 4-6 people
+    on a normal connection. An SFU flips that: each client uploads
+    <strong>once</strong>, and the server forwards packets to whoever should
+    receive them. No decoding, no mixing - it routes encrypted RTP as-is.
+  </p>
+  <pre class="diagram"><code>mesh (n=4): 6 p2p links, 3 uploads each      sfu: 1 upload each
+A &lt;-&gt; B   A &lt;-&gt; C   A &lt;-&gt; D                 A --&gt; [SFU] --&gt; B, C, D
+B &lt;-&gt; C   B &lt;-&gt; D   C &lt;-&gt; D                 B --&gt; [SFU] --&gt; A, C, D ...</code></pre>
+
+  <h2>Topology</h2>
+  <pre class="diagram"><code>browser --HTTPS (via soli-proxy)--&gt; control API  (axum,  :9300)  SDP + groups
+browser --UDP, direct, ONE port---&gt; media engine (str0m, :3478)  RTP / RTCP</code></pre>
+  <p>
+    The control plane is a tiny HTTP API (offer/answer exchange, group
+    updates) that sits behind soli-proxy for TLS. The media plane is a single
+    UDP socket the SFU answers ICE checks on directly
+    (<strong>ice-lite</strong>) - browsers connect to it without STUN or TURN
+    servers in the common case.
+  </p>
+
+  <div class="note">
+    <strong>Own service on purpose.</strong> soli-sfu is not a soli-proxy
+    module: media sessions are long-lived UDP state and must survive proxy
+    blue-green deployments. Deploy it next to the proxy, never behind it.
+  </div>
+
+  <h2>Design decisions</h2>
+  <ul>
+    <li><strong>Group-scoped forwarding.</strong> Each session declares which user_ids it hears (bonfire's proximity groups). Media fans out inside the group only - never the whole room.</li>
+    <li><strong>Slot-based downstream.</strong> Subscribers pre-allocate N recvonly m-lines; publishers are mapped onto free slots. Zero renegotiation, ever.</li>
+    <li><strong>Audio AND video forward from day one</strong> - the engine routes packets without caring about their kind, and relays keyframe requests (PLI) so video starts instantly for new viewers. Camera and screen share ride the same path as the mic.</li>
+    <li><strong>No simulcast, no congestion control.</strong> v1 forwards packets, period. Bitrates are capped client-side. This is the line between a weekend of code and a year of it.</li>
+    <li><strong>Tokens, not sessions.</strong> Auth is an HMAC token minted by the Soli app with builtins it already has. The SFU holds no user database.</li>
+  </ul>
+
+  <h2>Quickstart</h2>
+  <pre data-lang="shell"><code><span class="c"># local dev: unauthenticated, loopback</span>
+cargo run -- dev.toml
+
+<span class="c"># open the test client in TWO tabs, join the same room</span>
+open examples/client.html
+
+<span class="c"># production</span>
+cp config.example.toml sfu.toml   <span class="c"># set public_ip</span>
+SOLI_SFU_SECRET=... cargo run --release -- sfu.toml</code></pre>
+
+  <div class="pager">
+    <span></span>
+    <a class="next" href="/architecture"><span>next</span>Architecture</a>
+  </div>
+</article>

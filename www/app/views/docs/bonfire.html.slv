@@ -1,0 +1,54 @@
+<article class="doc">
+  <p class="kicker">06 / bonfire integration</p>
+  <h1>Plugging into the office</h1>
+  <p class="lede">
+    The 3D office currently runs a full client-side mesh
+    (<code>rtcPeers</code> in gather-3d.js). The integration keeps that mesh
+    for small conversations and hands big ones to the SFU - same proximity
+    model, same circles, one media path swap.
+  </p>
+
+  <h2>The plan</h2>
+  <ol>
+    <li><strong>Mint tokens server-side.</strong> An <code>Sfu</code> service in bonfire mirrors <code>GatherWs.mint_token</code> with the <code>sfu1.</code> prefix and room <code>spatial:&lt;cid&gt;</code>; <code>gather#three</code> hands it to the page alongside the existing gather WS token.</li>
+    <li><strong>Threshold switch in gather-3d.js.</strong> <code>reconcileRtc</code> already computes the conversation group every 300ms. Group size &lt;= 4: keep the mesh (lowest latency, zero server load). Size 5+: tear down mesh legs and bring up ONE SFU PeerConnection instead.</li>
+    <li><strong>PATCH peers on group change.</strong> The same place that calls <code>updateConvoBar()</code> on a membership-signature change PATCHes the SFU session's <code>peers</code> list. Locked circles map to it directly - media privacy enforced server-side instead of by mutual client agreement.</li>
+    <li><strong>Tiles stay as they are.</strong> Remote tracks arrive on slot transceivers instead of per-peer connections; <code>updateTiles()</code> keys on live+unmuted video tracks already, which is exactly the slot semantics.</li>
+  </ol>
+
+  <h2>What maps to what</h2>
+  <table>
+    <tr><th>Office concept</th><th>SFU concept</th></tr>
+    <tr><td>Company office (<code>spatial:&lt;cid&gt;</code>)</td><td>Room (from the token)</td></tr>
+    <tr><td>Proximity conversation group</td><td><code>peers</code> set of each member's session</td></tr>
+    <tr><td>Locked private circle</td><td>Same - outsiders are simply not in anyone's <code>peers</code></td></tr>
+    <tr><td>Walking away (FAR hysteresis)</td><td>PATCH removing the departed user</td></tr>
+    <tr><td>Leaving the office</td><td>DELETE (best-effort) + ICE timeout reaping</td></tr>
+  </table>
+
+  <h2>Why not SFU-always</h2>
+  <ul>
+    <li>A 1:1 chat through an SFU adds a server hop (and its bandwidth bill) for nothing - the mesh path is free and lower-latency.</li>
+    <li>The mesh is already debugged: deadlock watchdog, away-survival, autoplay recovery. The SFU only needs to win where the mesh physically cannot go.</li>
+    <li>The switch point (4) is a config knob, not an architecture decision - move it as real-world numbers come in.</li>
+  </ul>
+
+  <div class="note">
+    <strong>Signaling stays put.</strong> The gather WS keeps carrying moves,
+    knocks and circle frames. The SFU only replaces the
+    peer-to-peer <em>media</em> legs; nothing about presence changes.
+  </div>
+
+  <h2>Rollout sketch</h2>
+  <ol>
+    <li>Deploy soli-sfu next to the proxy; expose <code>/sfu/</code> -&gt; control API in soli-proxy config.</li>
+    <li>Feature-flag in bonfire (<code>gather_sfu_threshold</code>, default off/infinite).</li>
+    <li>Office-test with the team at threshold 2 (forces SFU) for a week.</li>
+    <li>Ship with threshold 4.</li>
+  </ol>
+
+  <div class="pager">
+    <a href="/client"><span>previous</span>Client contract</a>
+    <a class="next" href="/ops"><span>next</span>Operations</a>
+  </div>
+</article>

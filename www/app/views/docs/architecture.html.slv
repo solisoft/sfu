@@ -1,0 +1,90 @@
+<article class="doc">
+  <p class="kicker">02 / architecture</p>
+  <h1>One thread, one socket, N state machines</h1>
+  <p class="lede">
+    The engine is built on str0m, a sans-IO WebRTC library: each peer is an
+    <code>Rtc</code> state machine that owns no sockets and spawns no tasks.
+    We feed it input, it tells us what to send. All of it runs on a single
+    dedicated OS thread.
+  </p>
+
+  <h2>The sans-IO loop</h2>
+  <p>Every peer follows the same contract, driven in a loop:</p>
+  <pre data-lang="rust"><code><span class="k">match</span> rtc.poll_output()? {
+    Output::Transmit(t)  =&gt; socket.send_to(&amp;t.contents, t.destination),
+    Output::Timeout(at)  =&gt; <span class="c">// nothing to do until `at`; feed Input::Timeout then</span>
+    Output::Event(event) =&gt; <span class="k">match</span> event {
+        Event::MediaData(data)     =&gt; forward_to_group(data),   <span class="c">// THE sfu</span>
+        Event::MediaAdded(m)       =&gt; classify_uplink_or_slot(m),
+        Event::KeyframeRequest(kr) =&gt; relay_to_publisher(kr),
+        _ =&gt; {}
+    }
+}</code></pre>
+  <p>
+    Incoming datagrams are demultiplexed by asking each peer
+    <code>rtc.accepts(&amp;input)</code> - str0m matches STUN by ICE ufrag and
+    SRTP by source address. One 20ms socket read timeout doubles as the tick
+    for control-plane commands and timer advancement.
+  </p>
+
+  <h2>ICE-lite, one port</h2>
+  <p>
+    The SFU is always the publicly reachable side, so it runs
+    <strong>ice-lite</strong>: it never initiates connectivity checks, it only
+    answers them. Every session shares the single UDP port; the SDP answer
+    carries one host candidate (<code>public_ip:udp_port</code>). Clients need
+    no STUN servers, and TURN is unnecessary unless the client's network
+    blocks UDP entirely.
+  </p>
+
+  <h2>Slots: downstream without renegotiation</h2>
+  <p>
+    The classic SFU problem: when a new publisher appears, every subscriber
+    needs a new m-line to receive them, which normally means an SDP
+    renegotiation storm. soli-sfu sidesteps it entirely:
+  </p>
+  <ul>
+    <li>Subscribers <strong>pre-allocate</strong> <code>audio_slots</code> (8) + <code>video_slots</code> (4) recvonly m-lines in their initial offer.</li>
+    <li>The engine maps publishers onto free slots dynamically. A slot whose publisher has been silent for 3s can be stolen for a new one.</li>
+    <li>Freshly bound video slots trigger a PLI to the publisher so the new viewer gets a keyframe immediately.</li>
+  </ul>
+  <p>
+    Proximity groups are 2-8 people, so the defaults never run dry in
+    practice. The cap also bounds memory: a hostile offer with 500 m-lines is
+    truncated to the configured slot counts.
+  </p>
+
+  <h2>Group-scoped forwarding</h2>
+  <p>
+    Each session carries a <code>peers</code> list: the user_ids this
+    subscriber should hear. On every <code>MediaData</code> from a publisher,
+    the engine fans out to room-mates whose peer set contains the publisher -
+    bonfire's proximity circles, enforced at the media layer. <code>null</code>
+    means "everyone in the room" (useful for plain meeting rooms).
+  </p>
+  <pre data-lang="rust"><code><span class="k">fn</span> hears(&amp;self, publisher: &amp;str) -&gt; bool {
+    <span class="k">match</span> &amp;self.peers {
+        None       =&gt; <span class="s">true</span>,                                  <span class="c">// open room</span>
+        Some(list) =&gt; list.iter().any(|u| u == publisher),   <span class="c">// circle</span>
+    }
+}</code></pre>
+
+  <h2>Lifecycle</h2>
+  <ul>
+    <li><strong>Join:</strong> POST an offer; a session for the same (user, room) replaces the previous one, so reconnects are idempotent.</li>
+    <li><strong>Leave:</strong> DELETE, or just stop talking - str0m's ICE timeout marks the Rtc dead and the engine reaps it, releasing every slot it fed.</li>
+    <li><strong>Restart:</strong> state is in-memory only. An SFU restart drops live calls; clients re-join (the office already auto-reconnects).</li>
+  </ul>
+
+  <div class="warn">
+    <strong>Deliberately missing:</strong> simulcast, TWCC/REMB congestion
+    control, TCP/TLS media fallback, recording. Each is a multiplier on
+    complexity; none is needed for proximity-group calls with client-side
+    bitrate caps.
+  </div>
+
+  <div class="pager">
+    <a href="/"><span>previous</span>Overview</a>
+    <a class="next" href="/api"><span>next</span>Control API</a>
+  </div>
+</article>

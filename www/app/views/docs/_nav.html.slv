@@ -1,0 +1,42 @@
+<%
+  pages = [
+    { "slug": "overview",     "path": "/",             "idx": "01", "label": "Overview" },
+    { "slug": "architecture", "path": "/architecture", "idx": "02", "label": "Architecture" },
+    { "slug": "api",          "path": "/api",          "idx": "03", "label": "Control API" },
+    { "slug": "tokens",       "path": "/tokens",       "idx": "04", "label": "Tokens" },
+    { "slug": "client",       "path": "/client",       "idx": "05", "label": "Client contract" },
+    { "slug": "bonfire",      "path": "/bonfire",      "idx": "06", "label": "Bonfire integration" },
+    { "slug": "ops",          "path": "/ops",          "idx": "07", "label": "Operations" }
+  ]
+  active = locals["active"] ?? "overview"
+%>
+<aside class="side">
+  <a href="/" class="brand">
+    <span class="brand-name">soli<span class="tld">-sfu</span></span>
+    <span class="brand-sub">selective forwarding unit</span>
+  </a>
+
+  <%# packets travelling publisher -> SFU -> subscribers %>
+  <div class="sigpath" aria-hidden="true">
+    <span class="hub"></span>
+    <span class="pkt"></span>
+    <span class="pkt p2"></span>
+    <span class="pkt p3"></span>
+  </div>
+
+  <nav class="nav">
+    <% for p in pages %>
+      <% if p["slug"] == active %>
+        <a href="<%= p["path"] %>" class="on"><span class="idx"><%= p["idx"] %></span><%= p["label"] %><span class="spacer" style="flex:1"></span><span class="port"></span></a>
+      <% else %>
+        <a href="<%= p["path"] %>"><span class="idx"><%= p["idx"] %></span><%= p["label"] %><span class="spacer" style="flex:1"></span><span class="port"></span></a>
+      <% end %>
+    <% end %>
+  </nav>
+
+  <div class="side-foot">
+    <p>engine <a href="https://github.com/algesten/str0m">str0m</a> / sans-io</p>
+    <p>part of the soli ecosystem</p>
+    <p>license MIT</p>
+  </div>
+</aside>

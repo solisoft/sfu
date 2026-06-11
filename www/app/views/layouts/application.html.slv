@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title ?? "Docs" %> - soli-sfu</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="<%= public_path("css/docs.css") %>">
+</head>
+<body class="docs">
+  <div class="shell">
+    <%- partial("docs/nav", { "active": page ?? "overview" }) %>
+    <main class="main">
+      <div class="topbar">
+        <span class="chip"><span class="led"></span> ice-lite</span>
+        <span class="chip">udp :3478</span>
+        <span class="chip">ctl :9300</span>
+        <span class="chip"><span class="led amber"></span> v0.1 - no simulcast</span>
+        <span class="spacer"></span>
+        <span class="chip">str0m 0.20</span>
+      </div>
+      <%= yield %>
+    </main>
+  </div>
+</body>
+</html>

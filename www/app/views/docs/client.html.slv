@@ -1,0 +1,76 @@
+<article class="doc">
+  <p class="kicker">05 / client contract</p>
+  <h1>Client contract</h1>
+  <p class="lede">
+    One RTCPeerConnection per room. The client decides its media shape
+    up-front (uplinks + downstream slots), sends one offer, and never
+    renegotiates. <code>examples/client.html</code> is the reference
+    implementation.
+  </p>
+
+  <h2>Building the offer</h2>
+  <pre data-lang="js"><code><span class="k">const</span> pc = <span class="k">new</span> RTCPeerConnection();   <span class="c">// no iceServers: the answer carries the SFU's host candidate</span>
+
+<span class="c">// 1. uplinks: mic now, a video sender reserved for cam/screen later</span>
+<span class="k">const</span> mic = <span class="k">await</span> navigator.mediaDevices.getUserMedia({ audio: <span class="s">true</span> });
+pc.addTransceiver(mic.getAudioTracks()[0], { direction: <span class="s">'sendonly'</span> });
+<span class="k">const</span> camTx = pc.addTransceiver(<span class="s">'video'</span>, { direction: <span class="s">'sendonly'</span> });
+
+<span class="c">// 2. downstream slots: MUST match the server's audio_slots / video_slots</span>
+<span class="k">for</span> (<span class="k">let</span> i = 0; i &lt; 8; i++) pc.addTransceiver(<span class="s">'audio'</span>, { direction: <span class="s">'recvonly'</span> });
+<span class="k">for</span> (<span class="k">let</span> i = 0; i &lt; 4; i++) pc.addTransceiver(<span class="s">'video'</span>, { direction: <span class="s">'recvonly'</span> });
+
+<span class="c">// 3. offer -&gt; control API -&gt; answer</span>
+<span class="k">const</span> offer = <span class="k">await</span> pc.createOffer();
+<span class="k">await</span> pc.setLocalDescription(offer);
+<span class="k">const</span> res = <span class="k">await</span> fetch(SFU + <span class="s">'/v1/sessions'</span>, {
+  method: <span class="s">'POST'</span>,
+  headers: { <span class="s">'Content-Type'</span>: <span class="s">'application/json'</span> },
+  body: JSON.stringify({ token, sdp_offer: offer.sdp, peers })
+});
+<span class="k">const</span> { session_id, sdp_answer } = <span class="k">await</span> res.json();
+<span class="k">await</span> pc.setRemoteDescription({ type: <span class="s">'answer'</span>, sdp: sdp_answer });</code></pre>
+
+  <h2>Receiving</h2>
+  <p>
+    Every slot fires <code>ontrack</code> once at setup; tracks go silent or
+    live as the SFU rebinds publishers onto them. Attach audio tracks to
+    <code>Audio</code> elements immediately and let them idle; show video
+    tiles on <code>unmute</code>, hide on <code>mute</code>.
+  </p>
+  <pre data-lang="js"><code>pc.ontrack = (ev) =&gt; {
+  <span class="k">if</span> (ev.track.kind === <span class="s">'audio'</span>) {
+    <span class="k">const</span> a = <span class="k">new</span> Audio();
+    a.autoplay = <span class="s">true</span>;
+    a.srcObject = <span class="k">new</span> MediaStream([ev.track]);
+  } <span class="k">else</span> {
+    ev.track.onunmute = () =&gt; showTile(ev.track);
+    ev.track.onmute   = () =&gt; hideTile(ev.track);
+  }
+};</code></pre>
+
+  <h2>Starting the camera / screen later</h2>
+  <p>No renegotiation - replace the reserved sender's track:</p>
+  <pre data-lang="js"><code><span class="k">const</span> cam = <span class="k">await</span> navigator.mediaDevices.getUserMedia({ video: { width: 640 } });
+<span class="k">await</span> camTx.sender.replaceTrack(cam.getVideoTracks()[0]);</code></pre>
+
+  <h2>Cap your bitrates</h2>
+  <p>
+    The SFU does no congestion control; the client must not firehose it:
+  </p>
+  <pre data-lang="js"><code><span class="k">const</span> p = camTx.sender.getParameters();
+p.encodings = [{ maxBitrate: 600_000 }];   <span class="c">// ~600 kbps video; audio defaults are fine</span>
+<span class="k">await</span> camTx.sender.setParameters(p);</code></pre>
+
+  <h2>Leaving</h2>
+  <ul>
+    <li>Graceful: <code>DELETE /v1/sessions/:id</code>, then <code>pc.close()</code>.</li>
+    <li>Crash / tab close: just disappear - the ICE timeout reaps the session server-side within seconds.</li>
+    <li>Reconnect: POST a fresh offer; the old session for the same (user, room) is replaced automatically.</li>
+  </ul>
+
+  <div class="pager">
+    <a href="/tokens"><span>previous</span>Tokens</a>
+    <a class="next" href="/bonfire"><span>next</span>Bonfire integration</a>
+  </div>
+</article>

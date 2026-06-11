@@ -1,0 +1,68 @@
+<article class="doc">
+  <p class="kicker">04 / tokens</p>
+  <h1>Tokens</h1>
+  <p class="lede">
+    Auth is a signed, expiring token binding a user to a room. The scheme is
+    byte-compatible with bonfire's <code>GatherWs</code> tokens, so the Soli
+    app mints them with builtins it already ships - the SFU holds no user
+    database and never calls back into the app.
+  </p>
+
+  <h2>Format</h2>
+  <pre data-lang="text"><code>sfu1.&lt;base64(user_id)&gt;:&lt;base64(room)&gt;:&lt;unix_exp&gt;.&lt;hmac&gt;
+      |________________ signed payload ___________|
+
+hmac = HMAC-SHA256(signed_payload_with_prefix, secret), lowercase hex</code></pre>
+
+  <h2>Minting from Soli</h2>
+  <pre data-lang="soli"><code><span class="k">static def</span> mint_sfu_token(user_id, room)
+    secret = getenv(<span class="s">"SOLI_SFU_SECRET"</span>) ?? getenv(<span class="s">"SOLI_WEBHOOK_SECRET"</span>) ?? <span class="s">""</span>
+    <span class="k">return</span> <span class="s">""</span> <span class="k">if</span> secret.blank?
+    exp     = DateTime.utc().to_unix() + 3600
+    payload = Base64.encode(user_id) + <span class="s">":"</span> + Base64.encode(room) + <span class="s">":"</span> + str(exp)
+    signed  = <span class="s">"sfu1."</span> + payload
+    <span class="k">return</span> signed + <span class="s">"."</span> + Crypto.hmac(signed, secret)
+<span class="k">end</span></code></pre>
+  <p>
+    <code>Crypto.hmac</code> is HMAC-SHA256 with lowercase hex output - the
+    Rust side pins that exact construction in a unit test
+    (<code>matches_soli_crypto_hmac</code>), so a drift on either side fails CI.
+  </p>
+
+  <h2>Secret resolution</h2>
+  <table>
+    <tr><th>Order</th><th>Source</th></tr>
+    <tr><td>1</td><td><code>SOLI_SFU_SECRET</code> env var (dedicated secret, recommended)</td></tr>
+    <tr><td>2</td><td><code>secret</code> key in the TOML config</td></tr>
+    <tr><td>3</td><td><code>SOLI_WEBHOOK_SECRET</code> env var (share bonfire's existing secret)</td></tr>
+  </table>
+
+  <h2>CLI mint</h2>
+  <p>For curl sessions and debugging:</p>
+  <pre data-lang="shell"><code>SOLI_SFU_SECRET=... soli-sfu mint-token user-42 spatial:acme 3600
+<span class="c"># -&gt; sfu1.dXNlci00Mg==:c3BhdGlhbDphY21l:1781240000.9f3a...</span></code></pre>
+
+  <h2>Dev pseudo-tokens</h2>
+  <p>
+    With <code>allow_unauthenticated = true</code> (the shipped
+    <code>dev.toml</code>), the SFU also accepts unsigned tokens of the form
+    <code>dev.&lt;user_id&gt;.&lt;room&gt;</code> - what the test client
+    generates when its token field is left blank.
+  </p>
+  <div class="warn">
+    <strong>Never in production.</strong> A dev token carries no signature and
+    no expiry; the server logs a warning at boot when the flag is on.
+  </div>
+
+  <h2>What the token does and does not protect</h2>
+  <ul>
+    <li>It proves <strong>who</strong> you are and <strong>which room</strong> you may join, with an expiry.</li>
+    <li>It does not encrypt media - DTLS-SRTP already does that per-session.</li>
+    <li>Group privacy (who hears whom) is enforced by the <code>peers</code> sets, which only authenticated session owners can change - and only for their own session.</li>
+  </ul>
+
+  <div class="pager">
+    <a href="/api"><span>previous</span>Control API</a>
+    <a class="next" href="/client"><span>next</span>Client contract</a>
+  </div>
+</article>
